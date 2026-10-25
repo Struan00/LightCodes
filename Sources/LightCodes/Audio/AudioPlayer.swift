@@ -25,7 +25,8 @@ final class AudioPlayer {
         stop()
         let f = try AVAudioFile(forReading: url)
         file = f
-        duration = Double(f.length) / f.processingFormat.sampleRate
+        // The output thread reads `duration` in currentTime, so write it under the lock too.
+        lock.withLock { duration = Double(f.length) / f.processingFormat.sampleRate }
         engine.disconnectNodeOutput(node)
         engine.connect(node, to: engine.mainMixerNode, format: f.processingFormat)
         engine.prepare()
