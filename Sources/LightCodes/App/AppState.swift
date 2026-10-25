@@ -412,7 +412,9 @@ final class AppState {
 
     /// 44 Hz DMX refresh (DMX's practical max for 512 channels), driven by the audio clock.
     private func startOutputLoop() {
-        let timer = DispatchSource.makeTimerSource(flags: .strict, queue: .global(qos: .userInteractive))
+        // Serial queue: ticks must never overlap, or outputs see concurrent send() calls.
+        let queue = DispatchQueue(label: "lightcodes.output", qos: .userInteractive)
+        let timer = DispatchSource.makeTimerSource(flags: .strict, queue: queue)
         timer.schedule(deadline: .now(), repeating: .milliseconds(23), leeway: .milliseconds(1))
         let box = self.box
         let player = self.player
