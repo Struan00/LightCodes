@@ -81,10 +81,16 @@ final class EnttecProOutput: DMXOutput {
         var p: [UInt8] = [0x7E, 0x06, UInt8(len & 0xFF), UInt8(len >> 8), 0x00]
         p += universe.prefix(512)
         p.append(0xE7)
-        queue.async { [fd] in _ = p.withUnsafeBytes { write(fd, $0.baseAddress, $0.count) } }
+        queue.async { [self] in
+            guard !closed else { return }
+            _ = p.withUnsafeBytes { write(fd, $0.baseAddress, $0.count) }
+        }
     }
 
-    func close() { queue.sync { _ = Darwin.close(fd) } }
+    /// Only touched on `queue`, so frames queued before close() never hit a reused fd.
+    private var closed = false
+
+    func close() { queue.sync { if !closed { closed = true; _ = Darwin.close(fd) } } }
 }
 
 /// Enttec Open DMX (budget, "dumb" FTDI cable). The computer must generate DMX
@@ -116,7 +122,8 @@ final class OpenDMXOutput: DMXOutput {
     func send(_ universe: [UInt8]) {
         var p: [UInt8] = [0x00]
         p += universe.prefix(512)
-        queue.async { [fd] in
+        queue.async { [self] in
+            guard !closed else { return }
             _ = ioctl(fd, OpenDMXOutput.TIOCSBRK)
             usleep(110)                  // BREAK >= 88µs
             _ = ioctl(fd, OpenDMXOutput.TIOCCBRK)
@@ -125,5 +132,7 @@ final class OpenDMXOutput: DMXOutput {
         }
     }
 
-    func close() { queue.sync { _ = Darwin.close(fd) } }
+    private var closed = false
+
+    func close() { queue.sync { if !closed { closed = true; _ = Darwin.close(fd) } } }
 }
