@@ -7,6 +7,10 @@ APP=dist/LightCodes.app
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$(swift build -c release --show-bin-path)/LightCodes" "$APP/Contents/MacOS/LightCodes"
+# SwiftPM's default build system can record the deployment target as the SDK version,
+# which makes macOS run the app in compatibility mode (no Liquid Glass). Record the real SDK.
+vtool -set-build-version macos 14.0 "$(xcrun --show-sdk-version)" -replace \
+      -output "$APP/Contents/MacOS/LightCodes" "$APP/Contents/MacOS/LightCodes"
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
