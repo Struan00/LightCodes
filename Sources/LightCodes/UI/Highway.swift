@@ -55,7 +55,7 @@ struct Highway: View {
                         // Leading "note head"
                         if x(c.start) >= header {
                             let head = CGRect(x: x(c.start) - 3, y: y + 5, width: 6, height: laneH - 10)
-                            glowCtx.fill(Path(roundedRect: head, cornerRadius: 3), with: .color(col))
+                            ctx.fill(Path(roundedRect: head, cornerRadius: 3), with: .color(col))
                         }
                     }
 
@@ -67,38 +67,40 @@ struct Highway: View {
                     glowCtx.fill(Path(ellipseIn: gate.insetBy(dx: -30, dy: -10)),
                                  with: .radialGradient(Gradient(colors: [s.color.color.opacity(0.8 * s.intensity), .clear]),
                                                        center: CGPoint(x: gate.midX, y: gate.midY), startRadius: 0, endRadius: 48))
-                    ctx.stroke(Path(roundedRect: gate, cornerRadius: 8), with: .color(.white.opacity(0.35)), lineWidth: 1.5)
+                    ctx.stroke(Path(roundedRect: gate, cornerRadius: 8), with: .color(.white.opacity(0.25)), lineWidth: 1)
 
                     // Lane label + key cap
                     let key = i == 0 ? "Q" : "\(i)"
                     let cap = CGRect(x: 10, y: y + laneH / 2 - 11, width: 22, height: 22)
-                    ctx.fill(Path(roundedRect: cap, cornerRadius: 5), with: .color(i == 0 ? Theme.magenta : Theme.cyan))
-                    ctx.draw(Text(key).font(Theme.mono(11, .black)).foregroundStyle(.black), at: CGPoint(x: cap.midX, y: cap.midY))
-                    ctx.draw(Text(light?.name ?? "ALL").font(Theme.mono(9, .medium)).foregroundStyle(Theme.dim),
+                    ctx.fill(Path(roundedRect: cap, cornerRadius: 5), with: .color(.white.opacity(0.10)))
+                    ctx.stroke(Path(roundedRect: cap, cornerRadius: 5), with: .color(.white.opacity(0.15)), lineWidth: 0.5)
+                    ctx.draw(Text(key).font(.system(size: 11, weight: .semibold)).foregroundStyle(.primary), at: CGPoint(x: cap.midX, y: cap.midY))
+                    ctx.draw(Text(light?.name ?? "All").font(.system(size: 10, weight: .medium)).foregroundStyle(.secondary),
                              at: CGPoint(x: 38, y: y + laneH / 2), anchor: .leading)
                 }
 
                 // Hit line
                 var hit = Path(); hit.move(to: CGPoint(x: hitX, y: top - 6)); hit.addLine(to: CGPoint(x: hitX, y: top + laneH * CGFloat(lanes.count) + 6))
-                glowCtx.stroke(hit, with: .color(live ? Theme.magenta : Theme.cyan), lineWidth: 3)
+                ctx.stroke(hit, with: .color(live ? Color.red : Color.accentColor), lineWidth: 2)
 
                 if live && !state.isPlaying {
                     ctx.draw(Text("Hold 1–9 (or Q for all) on the beat to record light. Recording starts on your first key.")
-                        .font(Theme.display(13, .semibold)).foregroundStyle(Theme.text),
+                        .font(.callout).foregroundStyle(.secondary),
                              at: CGPoint(x: size.width / 2, y: size.height - 14))
                 }
             }
         }
-        .glassPanel(corner: 18)
+        .surface(cornerRadius: 16)
         .overlay(alignment: .topTrailing) {
             if state.mode == .live {
                 HStack(spacing: 6) {
-                    Circle().fill(Theme.magenta).frame(width: 8, height: 8).glow(Theme.magenta, radius: 8)
-                    Text("REC · \(state.paletteKind.title.uppercased())").font(Theme.mono(10, .bold)).foregroundStyle(Theme.magenta)
+                    Circle().fill(.red).frame(width: 7, height: 7)
+                    Text("Recording · \(state.paletteKind.title)").font(.caption.weight(.medium))
                 }
+                .padding(.horizontal, 10).padding(.vertical, 5)
+                .glassCapsule()
                 .padding(10)
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 }

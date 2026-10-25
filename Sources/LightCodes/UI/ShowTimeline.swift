@@ -32,7 +32,8 @@ struct ShowTimeline: View {
                         }
                     }
                     .frame(width: M.header)
-                    .background(Theme.bg1.opacity(0.6))
+                    .background(Color.white.opacity(0.025))
+                    .overlay(alignment: .trailing) { Rectangle().fill(Theme.line).frame(width: 1) }
 
                     ScrollView(.horizontal) {
                         ZStack(alignment: .topLeading) {
@@ -53,29 +54,31 @@ struct ShowTimeline: View {
                 }
             }
         }
-        .glassPanel(corner: 18)
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .surface(cornerRadius: 16)
     }
 
     private var toolbar: some View {
         @Bindable var state = state
         return HStack(spacing: 10) {
-            Text("TIMELINE").font(Theme.display(11, .black)).tracking(2).foregroundStyle(Theme.dim)
+            Text("Timeline").font(.headline)
             Spacer()
             HStack(spacing: 6) {
-                Image(systemName: "magnet").foregroundStyle(state.snap == .off ? Theme.dim : Theme.cyan)
-                Picker("", selection: $state.snap) {
+                Image(systemName: "dot.squareshape.split.2x2")
+                    .foregroundStyle(state.snap == .off ? AnyShapeStyle(.tertiary) : AnyShapeStyle(.secondary))
+                    .help("Snap to grid")
+                Picker("Snap", selection: $state.snap) {
                     ForEach(SnapDivision.allCases) { Text($0.label).tag($0) }
                 }
-                .pickerStyle(.segmented).frame(width: 230).labelsHidden()
+                .pickerStyle(.segmented).frame(width: 220).labelsHidden()
             }
             HStack(spacing: 6) {
-                Image(systemName: "minus.magnifyingglass").foregroundStyle(Theme.dim)
-                Slider(value: $state.pixelsPerSecond, in: 20...400).frame(width: 120).tint(Theme.cyan)
-                Image(systemName: "plus.magnifyingglass").foregroundStyle(Theme.dim)
+                Image(systemName: "minus.magnifyingglass").foregroundStyle(.secondary)
+                Slider(value: $state.pixelsPerSecond, in: 20...400).frame(width: 110).controlSize(.small)
+                Image(systemName: "plus.magnifyingglass").foregroundStyle(.secondary)
             }
         }
-        .padding(.horizontal, 12).padding(.vertical, 8)
+        .controlSize(.small)
+        .padding(.horizontal, 14).padding(.vertical, 9)
         .overlay(alignment: .bottom) { Rectangle().fill(Theme.line).frame(height: 1) }
     }
 }
@@ -96,7 +99,7 @@ struct GridBackground: View {
             // Zebra lanes
             for i in 0..<laneCount where i % 2 == 0 {
                 let r = CGRect(x: 0, y: top + CGFloat(i) * TimelineMetrics.lane, width: size.width, height: TimelineMetrics.lane)
-                ctx.fill(Path(r), with: .color(.white.opacity(0.018)))
+                ctx.fill(Path(r), with: .color(.white.opacity(0.015)))
             }
             // Beat lines: bars bright, beats faint (fade out when zoomed far out)
             let showBeats = pps * (60 / max(60, state.project.bpm)) > 9
@@ -105,7 +108,7 @@ struct GridBackground: View {
                 guard bar || showBeats else { continue }
                 let x = b * pps
                 var p = Path(); p.move(to: CGPoint(x: x, y: 0)); p.addLine(to: CGPoint(x: x, y: size.height))
-                ctx.stroke(p, with: .color(.white.opacity(bar ? 0.10 : 0.035)), lineWidth: bar ? 1 : 0.5)
+                ctx.stroke(p, with: .color(.white.opacity(bar ? 0.08 : 0.03)), lineWidth: bar ? 0.75 : 0.5)
             }
         }
         .frame(width: width, height: TimelineMetrics.top + CGFloat(laneCount) * TimelineMetrics.lane)
@@ -131,10 +134,10 @@ struct Ruler: View {
                 bar += 1
                 guard (bar - 1) % every == 0 else { continue }
                 let x = beats[i] * pps
-                ctx.draw(Text("\(bar)").font(Theme.mono(10, .bold)).foregroundStyle(Theme.dim),
+                ctx.draw(Text("\(bar)").font(.system(size: 10).monospacedDigit()).foregroundStyle(.secondary),
                          at: CGPoint(x: x + 4, y: size.height / 2), anchor: .leading)
                 var p = Path(); p.move(to: CGPoint(x: x, y: size.height * 0.4)); p.addLine(to: CGPoint(x: x, y: size.height))
-                ctx.stroke(p, with: .color(Theme.dim), lineWidth: 1)
+                ctx.stroke(p, with: .color(.white.opacity(0.2)), lineWidth: 0.75)
             }
         }
         .frame(width: width, height: TimelineMetrics.ruler)
@@ -160,14 +163,13 @@ struct SectionStrip: View {
                 let c = sec.kind.tint.color
                 let w = max(4, (sec.end - sec.start) * pps - 3)
                 HStack(spacing: 6) {
-                    Text(sec.kind.title.uppercased()).font(Theme.display(10, .black)).tracking(1.5)
+                    Text(sec.kind.title).font(.caption.weight(.medium))
                     if w > 120 { EnergyBar(level: sec.energy, color: c) }
                 }
-                .foregroundStyle(c)
+                .foregroundStyle(.primary.opacity(0.85))
                 .padding(.horizontal, 8)
                 .frame(width: w, height: TimelineMetrics.sections - 6, alignment: .leading)
-                .background(c.opacity(0.16), in: RoundedRectangle(cornerRadius: 6))
-                .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(c.opacity(0.5), lineWidth: 1))
+                .background(c.opacity(0.18), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
                 .clipped()
                 .offset(x: sec.start * pps + 1, y: 3)
                 .onTapGesture { state.seek(sec.start) }
@@ -208,14 +210,14 @@ struct WaveformStrip: View {
                 var pk: Float = 0, bass: Float = 0
                 for i in i0..<min(i1, a.peaks.count) { pk = max(pk, a.peaks[i]); bass = max(bass, a.bass[i]) }
                 let hgt = CGFloat(pk) * (mid - 2)
-                // Bass-heavy = magenta, bright/treble = cyan (like rekordbox's colour waveform).
-                let col = RGB.cyan.mixed(with: .magenta, Double(min(1, bass * 1.4))).color
-                ctx.fill(Path(CGRect(x: x, y: mid - hgt, width: step - 0.5, height: hgt * 2)), with: .color(col.opacity(0.85)))
+                // Bass-heavy bars read slightly brighter, so kicks stand out without colour noise.
+                let alpha = 0.32 + 0.3 * Double(min(1, bass * 1.4))
+                ctx.fill(Path(CGRect(x: x, y: mid - hgt, width: step - 0.5, height: hgt * 2)), with: .color(.white.opacity(alpha)))
                 x += step
             }
         }
         .frame(width: width, height: TimelineMetrics.wave)
-        .background(Color.black.opacity(0.25))
+        .background(Color.black.opacity(0.15))
         .contentShape(Rectangle())
         .onTapGesture { loc in state.seek(loc.x / pps) }
     }
@@ -231,13 +233,14 @@ struct LaneHeader: View {
     var body: some View {
         HStack(spacing: 8) {
             Text(index == 0 ? "Q" : "\(index)")
-                .font(Theme.mono(10, .bold)).foregroundStyle(.black)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.secondary)
                 .frame(width: 18, height: 18)
-                .background(index == 0 ? Theme.magenta : Theme.cyan, in: RoundedRectangle(cornerRadius: 4))
+                .background(.quaternary, in: RoundedRectangle(cornerRadius: 4, style: .continuous))
             VStack(alignment: .leading, spacing: 1) {
-                Text(light?.name ?? "MASTER").font(Theme.display(12, .bold)).foregroundStyle(Theme.text).lineLimit(1)
-                Text(light.map { "\($0.profile.name) · @\($0.address)" } ?? "all lights")
-                    .font(Theme.mono(9, .regular)).foregroundStyle(Theme.dim).lineLimit(1)
+                Text(light?.name ?? "Master").font(.callout.weight(.medium)).lineLimit(1)
+                Text(light.map { "\($0.profile.name) · @\($0.address)" } ?? "All lights")
+                    .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer(minLength: 0)
         }
@@ -257,7 +260,7 @@ struct LaneRow: View {
         let pps = state.pixelsPerSecond
         let laneID = state.lanes[index]?.id
         ZStack(alignment: .topLeading) {
-            Rectangle().fill(dropHover ? Theme.cyan.opacity(0.08) : Color.clear)
+            Rectangle().fill(dropHover ? Color.accentColor.opacity(0.10) : Color.clear)
                 .contentShape(Rectangle())
                 .onTapGesture { loc in
                     state.addClip(kind: state.paletteKind, lane: index, at: loc.x / pps)
@@ -289,19 +292,17 @@ struct ClipView: View {
         let w = max(8, clip.duration * pps)
 
         ZStack(alignment: .leading) {
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                .fill(LinearGradient(colors: [c.opacity(0.55), c.opacity(0.22)], startPoint: .top, endPoint: .bottom))
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(c.opacity(selected ? 0.42 : 0.28))
             EnvelopeShape(kind: clip.kind, rate: clip.rate, beatPx: state.beatLength * pps)
-                .stroke(c, lineWidth: 1.5)
-                .padding(.vertical, 6)
-                .opacity(0.9)
+                .stroke(c.opacity(0.9), lineWidth: 1.25)
+                .padding(.vertical, 7)
             if w > 44 {
                 HStack(spacing: 4) {
-                    Image(systemName: clip.kind.symbol).font(.system(size: 10, weight: .black))
-                    if w > 90 { Text(clip.kind.title).font(Theme.display(10, .heavy)) }
+                    Image(systemName: clip.kind.symbol).font(.system(size: 9, weight: .semibold))
+                    if w > 90 { Text(clip.kind.title).font(.caption2.weight(.semibold)) }
                 }
-                .foregroundStyle(.white)
-                .shadow(color: .black, radius: 2)
+                .foregroundStyle(.white.opacity(0.9))
                 .padding(.leading, 6)
             }
             // Resize handle
@@ -316,9 +317,8 @@ struct ClipView: View {
             }
         }
         .frame(width: w, height: TimelineMetrics.lane - 8)
-        .overlay(RoundedRectangle(cornerRadius: 7, style: .continuous)
-            .strokeBorder(selected ? Color.white : c.opacity(0.8), lineWidth: selected ? 2 : 1))
-        .glow(c, radius: selected ? 14 : 6, strength: selected ? 0.9 : 0.35)
+        .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous)
+            .strokeBorder(selected ? Color.white : c.opacity(0.55), lineWidth: selected ? 1.5 : 0.75))
         .offset(x: clip.start * pps, y: 4)
         .gesture(move(pps: pps))
         .onTapGesture {
@@ -411,11 +411,10 @@ struct Playhead: View {
         SwiftUI.TimelineView(.animation) { _ in
             let x = state.player.currentTime * state.pixelsPerSecond
             ZStack(alignment: .top) {
-                Rectangle().fill(Color.white).frame(width: 2)
-                    .glow(Theme.magenta, radius: 10)
+                Rectangle().fill(Color.accentColor).frame(width: 1.5)
                 Image(systemName: "arrowtriangle.down.fill")
-                    .font(.system(size: 11)).foregroundStyle(.white)
-                    .offset(y: -2)
+                    .font(.system(size: 9)).foregroundStyle(Color.accentColor)
+                    .offset(y: -1)
             }
             .offset(x: x - 1)
         }

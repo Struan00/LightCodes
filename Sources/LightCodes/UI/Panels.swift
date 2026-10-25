@@ -1,136 +1,101 @@
 import SwiftUI
 
-/// Left column: the "moves" you paint with, colours, and the Auto-Show button.
+/// Sidebar: the "moves" you paint with, colours, and the Auto-Show button.
 struct Palette: View {
     @Environment(AppState.self) private var state
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                Button {
-                    state.runAutoShow()
-                } label: {
-                    HStack {
-                        Image(systemName: "wand.and.stars")
-                        Text("AUTO-SHOW").tracking(1.5)
-                    }
-                    .frame(maxWidth: .infinity)
+        List(selection: Binding<ClipKind?>(get: { state.paletteKind },
+                                           set: { if let k = $0 { state.paletteKind = k } })) {
+            Section {
+                Button { state.runAutoShow() } label: {
+                    Label("Auto-Show", systemImage: "wand.and.stars").frame(maxWidth: .infinity)
                 }
-                .buttonStyle(NeonButtonStyle(color: Theme.magenta, filled: true))
+                .glassButton(prominent: true)
+                .controlSize(.large)
                 .disabled(state.project.sections.isEmpty)
-                .help("Builds a full show from the song's phrases. Everything stays editable.")
+                .help("Builds a full show from the song's phrases. Everything stays editable. (⇧⌘A)")
+                .padding(.vertical, 4)
+            }
 
-                header("MOVES")
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
-                    ForEach(ClipKind.allCases) { kind in
-                        MoveCard(kind: kind)
-                    }
+            Section("Moves") {
+                ForEach(ClipKind.allCases) { kind in
+                    MoveRow(kind: kind).tag(kind)
                 }
+            }
 
-                header("COLOUR")
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 7), spacing: 6) {
+            Section("Colour") {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 7), spacing: 4) {
                     ForEach(RGB.swatches, id: \.self) { c in
                         SwatchButton(color: c, selected: state.paletteColor == c) { state.paletteColor = c }
                     }
                 }
-
-                header("RIG")
+                .padding(.vertical, 2)
+            }
+        }
+        .listStyle(.sidebar)
+        .safeAreaInset(edge: .bottom) {
+            VStack(spacing: 8) {
                 Button { state.showPatch = true } label: {
                     Label("Lights & Output", systemImage: "slider.horizontal.3").frame(maxWidth: .infinity)
                 }
-                .buttonStyle(NeonButtonStyle(color: Theme.cyan))
                 Button { state.chooseSong() } label: {
                     Label("Change Song", systemImage: "music.note").frame(maxWidth: .infinity)
                 }
-                .buttonStyle(NeonButtonStyle(color: Theme.violet))
             }
-            .padding(14)
+            .glassButton()
+            .padding(12)
         }
-        .glassPanel(corner: 18)
-    }
-
-    private func header(_ s: String) -> some View {
-        Text(s).font(Theme.display(10, .black)).tracking(2).foregroundStyle(Theme.dim)
     }
 }
 
-struct MoveCard: View {
+struct MoveRow: View {
     @Environment(AppState.self) private var state
     var kind: ClipKind
-    @State private var hover = false
 
     var body: some View {
         let selected = state.paletteKind == kind
-        let c = selected ? state.paletteColor.color : Theme.dim
-        VStack(spacing: 6) {
-            EnvelopeShape(kind: kind, rate: 1, beatPx: 14)
-                .stroke(c, lineWidth: 2)
-                .frame(height: 20)
-                .glow(selected ? c : .clear, radius: 6)
-            HStack(spacing: 4) {
-                Image(systemName: kind.symbol).font(.system(size: 9, weight: .black))
-                Text(kind.title).font(Theme.display(11, .bold))
-            }
-            .foregroundStyle(selected ? Theme.text : Theme.dim)
+        HStack(spacing: 10) {
+            EnvelopeShape(kind: kind, rate: 1, beatPx: 8)
+                .stroke(selected ? state.paletteColor.color : Color.secondary, lineWidth: 1.5)
+                .frame(width: 28, height: 12)
+            Text(kind.title)
         }
-        .padding(10)
-        .frame(maxWidth: .infinity)
-        .background(RoundedRectangle(cornerRadius: 10).fill(selected ? c.opacity(0.14) : Color.white.opacity(hover ? 0.06 : 0.03)))
-        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(selected ? c.opacity(0.7) : Theme.line, lineWidth: 1))
-        .scaleEffect(hover ? 1.04 : 1)
-        .animation(.spring(response: 0.25, dampingFraction: 0.6), value: hover)
-        .onHover { hover = $0 }
-        .onTapGesture { state.paletteKind = kind }
         .draggable(kind.rawValue) {
             Label(kind.title, systemImage: kind.symbol)
-                .padding(8).background(state.paletteColor.color.opacity(0.6), in: RoundedRectangle(cornerRadius: 8))
+                .padding(8)
+                .glass(cornerRadius: 10)
         }
-        .help("\(kind.hint). Click to choose, then click a lane — or drag it onto a lane.")
+        .help("\(kind.hint). Click to choose, then click a lane, or drag it onto a lane.")
     }
 }
 
-struct SwatchButton: View {
-    var color: RGB
-    var selected: Bool
-    var action: () -> Void
-    var body: some View {
-        Button(action: action) {
-            Circle().fill(color.color)
-                .frame(width: 22, height: 22)
-                .overlay(Circle().strokeBorder(.white, lineWidth: selected ? 2 : 0))
-                .glow(color.color, radius: selected ? 10 : 3, strength: selected ? 0.9 : 0.4)
-                .scaleEffect(selected ? 1.12 : 1)
-        }
-        .buttonStyle(.plain)
-        .animation(.spring(response: 0.25), value: selected)
-    }
-}
-
-/// Right column: tweak the selected clip(s).
+/// Inspector: tweak the selected clip(s).
 struct Inspector: View {
     @Environment(AppState.self) private var state
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("INSPECTOR").font(Theme.display(10, .black)).tracking(2).foregroundStyle(Theme.dim)
+        Form {
             if let clip = selectedClip {
                 editor(clip)
             } else {
-                VStack(alignment: .leading, spacing: 10) {
-                    Image(systemName: "cursorarrow.click.2").font(.system(size: 26)).foregroundStyle(Theme.cyan)
-                    Text("Pick a move, then click a lane on the beat you want.")
-                        .font(Theme.display(13, .semibold)).foregroundStyle(Theme.text)
-                    Text("Select a clip to change its colour, brightness and speed. Shift-click to select several.")
-                        .font(.system(size: 12)).foregroundStyle(Theme.dim)
+                Section {
+                    VStack(spacing: 10) {
+                        Image(systemName: "cursorarrow.click.2")
+                            .font(.system(size: 28, weight: .light))
+                            .foregroundStyle(.secondary)
+                        Text("No Clip Selected").font(.headline)
+                        Text("Pick a move in the sidebar, then click a lane on the beat you want. Shift-click to select several clips.")
+                            .font(.callout).foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
                 }
-                Spacer()
-                LatencyCard()
+                LatencySection()
             }
-            Spacer(minLength: 0)
         }
-        .padding(14)
-        .frame(maxHeight: .infinity, alignment: .top)
-        .glassPanel(corner: 18)
+        .formStyle(.grouped)
     }
 
     private var selectedClip: Clip? {
@@ -144,84 +109,93 @@ struct Inspector: View {
     }
 
     @ViewBuilder private func editor(_ clip: Clip) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: clip.kind.symbol).font(.system(size: 18, weight: .black))
-                .foregroundStyle(clip.color.color).glow(clip.color.color, radius: 8)
-            VStack(alignment: .leading) {
-                Text(clip.kind.title).font(Theme.display(18, .heavy)).foregroundStyle(Theme.text)
-                Text(state.selection.count > 1 ? "\(state.selection.count) clips selected" : clip.kind.hint)
-                    .font(.system(size: 11)).foregroundStyle(Theme.dim)
-            }
-        }
-
-        Picker("Move", selection: Binding(get: { clip.kind }, set: { k in state.checkpoint(); apply { $0.kind = k } })) {
-            ForEach(ClipKind.allCases) { Label($0.title, systemImage: $0.symbol).tag($0) }
-        }
-
-        label("Colour")
-        HStack(spacing: 6) {
-            ForEach(RGB.swatches, id: \.self) { c in
-                SwatchButton(color: c, selected: clip.color == c) { state.checkpoint(); apply { $0.color = c } }
-            }
-        }
-        ColorPicker("Custom", selection: Binding(
-            get: { clip.color.color },
-            set: { col in
-                let ns = NSColor(col).usingColorSpace(.deviceRGB) ?? .white
-                apply { $0.color = RGB(r: ns.redComponent, g: ns.greenComponent, b: ns.blueComponent) }
-            }))
-            .font(.system(size: 11))
-
-        label("Brightness \(Int(clip.intensity * 100))%")
-        Slider(value: Binding(get: { clip.intensity }, set: { v in apply { $0.intensity = v } }), in: 0...1)
-            .tint(Theme.amber)
-
-        if [.pulse, .chase, .strobe].contains(clip.kind) {
-            label(rateLabel(clip))
-            Picker("", selection: Binding(get: { clip.rate }, set: { v in state.checkpoint(); apply { $0.rate = v } })) {
-                if clip.kind == .strobe {
-                    Text("Slow").tag(1.0); Text("Med").tag(2.0); Text("Fast").tag(4.0); Text("Insane").tag(6.0)
-                } else {
-                    Text("¼").tag(0.25); Text("½").tag(0.5); Text("1").tag(1.0); Text("2").tag(2.0); Text("4").tag(4.0)
+        Section {
+            HStack(spacing: 12) {
+                Image(systemName: clip.kind.symbol)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(clip.color.color)
+                    .frame(width: 32, height: 32)
+                    .background(clip.color.color.opacity(0.15), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(clip.kind.title).font(.headline)
+                    Text(state.selection.count > 1 ? "\(state.selection.count) clips selected" : clip.kind.hint)
+                        .font(.caption).foregroundStyle(.secondary)
                 }
             }
-            .pickerStyle(.segmented).labelsHidden()
+            Picker("Move", selection: Binding(get: { clip.kind }, set: { k in state.checkpoint(); apply { $0.kind = k } })) {
+                ForEach(ClipKind.allCases) { Label($0.title, systemImage: $0.symbol).tag($0) }
+            }
         }
 
-        label("Timing")
-        HStack {
-            Chip(icon: "arrow.right.to.line", text: formatTime(clip.start), color: Theme.cyan)
-            Chip(icon: "arrow.left.and.right", text: String(format: "%.1f beats", clip.duration / state.beatLength), color: Theme.violet)
+        Section("Colour") {
+            HStack(spacing: 2) {
+                ForEach(RGB.swatches, id: \.self) { c in
+                    SwatchButton(color: c, selected: clip.color == c) { state.checkpoint(); apply { $0.color = c } }
+                }
+            }
+            ColorPicker("Custom", selection: Binding(
+                get: { clip.color.color },
+                set: { col in
+                    let ns = NSColor(col).usingColorSpace(.deviceRGB) ?? .white
+                    apply { $0.color = RGB(r: ns.redComponent, g: ns.greenComponent, b: ns.blueComponent) }
+                }))
         }
 
-        HStack {
-            Button("Duplicate") { state.duplicateSelection() }.buttonStyle(NeonButtonStyle(color: Theme.cyan))
-            Button("Delete") { state.deleteSelection() }.buttonStyle(NeonButtonStyle(color: Theme.magenta))
+        Section {
+            Slider(value: Binding(get: { clip.intensity }, set: { v in apply { $0.intensity = v } }), in: 0...1) {
+                Text("Brightness")
+            }
+            .labelsHidden()
+            if [.pulse, .chase, .strobe].contains(clip.kind) {
+                Picker(clip.kind == .strobe ? "Speed" : "Every", selection: Binding(get: { clip.rate },
+                                                                                   set: { v in state.checkpoint(); apply { $0.rate = v } })) {
+                    if clip.kind == .strobe {
+                        Text("Slow").tag(1.0); Text("Med").tag(2.0); Text("Fast").tag(4.0); Text("Max").tag(6.0)
+                    } else {
+                        Text("¼").tag(0.25); Text("½").tag(0.5); Text("1").tag(1.0); Text("2").tag(2.0); Text("4").tag(4.0)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
+        } header: {
+            HStack {
+                Text("Brightness")
+                Spacer()
+                Text("\(Int(clip.intensity * 100))%").monospacedDigit()
+            }
         }
-        .padding(.top, 6)
-    }
 
-    private func rateLabel(_ c: Clip) -> String {
-        c.kind == .strobe ? "Strobe speed" : "Every … beats"
-    }
+        Section("Timing") {
+            LabeledContent("Start", value: formatTime(clip.start))
+            LabeledContent("Length", value: String(format: "%.2g beats", clip.duration / state.beatLength))
+        }
 
-    private func label(_ s: String) -> some View {
-        Text(s.uppercased()).font(Theme.mono(10, .bold)).foregroundStyle(Theme.dim).padding(.top, 2)
+        Section {
+            HStack {
+                Button("Duplicate") { state.duplicateSelection() }
+                Spacer()
+                Button("Delete", role: .destructive) { state.deleteSelection() }
+            }
+        }
     }
 }
 
 /// Explains and tunes the "lights fire early" offset.
-struct LatencyCard: View {
+struct LatencySection: View {
     @Environment(AppState.self) private var state
     var body: some View {
         @Bindable var state = state
-        VStack(alignment: .leading, spacing: 6) {
-            Text("SYNC OFFSET · \(Int(state.project.latencyMs)) ms").font(Theme.mono(10, .bold)).foregroundStyle(Theme.dim)
-            Slider(value: $state.project.latencyMs, in: 0...300, step: 5).tint(Theme.lime)
-            Text("If lights trail the music, slide right. They'll be told what to do this much earlier.")
-                .font(.system(size: 10)).foregroundStyle(Theme.dim)
+        Section {
+            Slider(value: $state.project.latencyMs, in: 0...300, step: 5) { Text("Offset") }
+                .labelsHidden()
+        } header: {
+            HStack {
+                Text("Sync Offset")
+                Spacer()
+                Text("\(Int(state.project.latencyMs)) ms").monospacedDigit()
+            }
+        } footer: {
+            Text("If the lights trail the music, slide right. They'll be told what to do this much earlier.")
         }
-        .padding(10)
-        .background(Color.white.opacity(0.03), in: RoundedRectangle(cornerRadius: 10))
     }
 }

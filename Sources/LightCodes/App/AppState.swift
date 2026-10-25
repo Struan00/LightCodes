@@ -5,6 +5,13 @@ import UniformTypeIdentifiers
 enum Mode: String, CaseIterable, Identifiable {
     case build = "BUILD", live = "LIVE REC", show = "SHOW"
     var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .build: "Build"
+        case .live: "Record"
+        case .show: "Perform"
+        }
+    }
     var symbol: String {
         switch self {
         case .build: "square.stack.3d.up.fill"

@@ -1,84 +1,88 @@
 import SwiftUI
 
-/// LightCodes visual language: deep space background, neon light, glass panels.
+/// LightCodes visual language: system typography, Liquid Glass for controls that float,
+/// quiet dark surfaces for content. The only saturated colour should be the light itself.
 enum Theme {
-    static let bg0 = Color(red: 0.020, green: 0.020, blue: 0.040)
-    static let bg1 = Color(red: 0.055, green: 0.050, blue: 0.095)
-    static let bg2 = Color(red: 0.090, green: 0.085, blue: 0.150)
-    static let line = Color.white.opacity(0.07)
-    static let text = Color.white.opacity(0.92)
-    static let dim = Color.white.opacity(0.45)
+    /// Behind everything: a dark room.
+    static let canvas = Color(red: 0.035, green: 0.037, blue: 0.045)
+    /// Content panels (stage, timeline). Slightly translucent so ambient light bleeds through.
+    static let surface = Color(red: 0.075, green: 0.078, blue: 0.09).opacity(0.88)
+    static let line = Color.white.opacity(0.06)
+    static let hairline = Color.white.opacity(0.12)
 
-    static let cyan = RGB.cyan.color
-    static let magenta = RGB.magenta.color
-    static let lime = RGB.lime.color
-    static let amber = RGB.amber.color
-    static let violet = RGB.violet.color
-
-    static let brand = LinearGradient(colors: [cyan, violet, magenta], startPoint: .leading, endPoint: .trailing)
-
-    static func mono(_ size: CGFloat, _ weight: Font.Weight = .semibold) -> Font {
+    static func mono(_ size: CGFloat, _ weight: Font.Weight = .medium) -> Font {
         .system(size: size, weight: weight, design: .monospaced)
-    }
-    static func display(_ size: CGFloat, _ weight: Font.Weight = .heavy) -> Font {
-        .system(size: size, weight: weight, design: .rounded)
     }
 }
 
 extension View {
-    /// Soft neon bloom around a view.
-    func glow(_ color: Color, radius: CGFloat = 10, strength: Double = 0.8) -> some View {
-        self
-            .shadow(color: color.opacity(strength), radius: radius / 2)
-            .shadow(color: color.opacity(strength * 0.6), radius: radius)
+    /// Liquid Glass on macOS 26, a system material on earlier versions.
+    @ViewBuilder func glass(cornerRadius r: CGFloat = 18, interactive: Bool = false) -> some View {
+        let shape = RoundedRectangle(cornerRadius: r, style: .continuous)
+        if #available(macOS 26, *) {
+            glassEffect(interactive ? .regular.interactive() : .regular, in: shape)
+        } else {
+            background(.regularMaterial, in: shape)
+                .overlay(shape.strokeBorder(Theme.hairline, lineWidth: 0.5))
+        }
     }
 
-    /// Frosted panel with a hairline border.
-    func glassPanel(corner: CGFloat = 16) -> some View {
-        self
-            .background(.ultraThinMaterial.opacity(0.55), in: RoundedRectangle(cornerRadius: corner, style: .continuous))
-            .background(Theme.bg1.opacity(0.75), in: RoundedRectangle(cornerRadius: corner, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: corner, style: .continuous)
-                .strokeBorder(LinearGradient(colors: [.white.opacity(0.14), .white.opacity(0.03)],
-                                             startPoint: .top, endPoint: .bottom), lineWidth: 1))
+    /// Capsule-shaped glass, for small floating badges.
+    @ViewBuilder func glassCapsule() -> some View {
+        if #available(macOS 26, *) {
+            glassEffect(.regular, in: Capsule())
+        } else {
+            background(.regularMaterial, in: Capsule())
+                .overlay(Capsule().strokeBorder(Theme.hairline, lineWidth: 0.5))
+        }
+    }
+
+    /// Glass button style on macOS 26, bordered system style on earlier versions.
+    @ViewBuilder func glassButton(prominent: Bool = false) -> some View {
+        if #available(macOS 26, *) {
+            if prominent { buttonStyle(.glassProminent) } else { buttonStyle(.glass) }
+        } else {
+            if prominent { buttonStyle(.borderedProminent) } else { buttonStyle(.bordered) }
+        }
+    }
+
+    /// Quiet panel for content: glass is for controls, not for the things you edit.
+    func surface(cornerRadius r: CGFloat = 16) -> some View {
+        let shape = RoundedRectangle(cornerRadius: r, style: .continuous)
+        return background(Theme.surface, in: shape)
+            .clipShape(shape)
+            .overlay(shape.strokeBorder(Theme.hairline, lineWidth: 0.5))
     }
 }
 
-/// Chunky, tactile game-style button.
-struct NeonButtonStyle: ButtonStyle {
-    var color: Color = Theme.cyan
-    var filled = false
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(Theme.display(13, .bold))
-            .foregroundStyle(filled ? Color.black : color)
-            .padding(.horizontal, 14).padding(.vertical, 8)
-            .background {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(filled ? AnyShapeStyle(color) : AnyShapeStyle(color.opacity(0.12)))
-            }
-            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(color.opacity(0.6), lineWidth: 1))
-            .glow(color, radius: configuration.isPressed ? 18 : 8, strength: filled ? 0.7 : 0.35)
-            .scaleEffect(configuration.isPressed ? 0.94 : 1)
-            .animation(.spring(response: 0.25, dampingFraction: 0.6), value: configuration.isPressed)
-    }
-}
-
-/// Small pill label (BPM, output status...).
+/// Small secondary label (timing, counts).
 struct Chip: View {
     var icon: String
     var text: String
-    var color: Color = Theme.dim
     var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: icon).font(.system(size: 11, weight: .bold))
-            Text(text).font(Theme.mono(11))
+        Label(text, systemImage: icon)
+            .font(.caption.monospacedDigit())
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 8).padding(.vertical, 4)
+            .background(.quaternary, in: Capsule())
+    }
+}
+
+/// A light colour swatch with a native-looking selection ring.
+struct SwatchButton: View {
+    var color: RGB
+    var selected: Bool
+    var action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            Circle().fill(color.color)
+                .frame(width: 18, height: 18)
+                .overlay(Circle().strokeBorder(.white.opacity(0.25), lineWidth: 0.5))
+                .padding(3)
+                .overlay(Circle().strokeBorder(selected ? Color.primary : .clear, lineWidth: 1.5))
         }
-        .foregroundStyle(color)
-        .padding(.horizontal, 10).padding(.vertical, 5)
-        .background(color.opacity(0.10), in: Capsule())
-        .overlay(Capsule().strokeBorder(color.opacity(0.35), lineWidth: 1))
+        .buttonStyle(.plain)
+        .animation(.snappy(duration: 0.2), value: selected)
     }
 }
 

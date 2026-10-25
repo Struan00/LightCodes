@@ -15,10 +15,11 @@ struct LightCodesApp: App {
         WindowGroup("LightCodes") {
             ContentView()
                 .environment(state)
-                .frame(minWidth: 1180, minHeight: 760)
+                .frame(minWidth: 1240, minHeight: 740)
                 .preferredColorScheme(.dark)
         }
-        .windowStyle(.hiddenTitleBar)
+        .defaultSize(width: 1440, height: 900)
+        .windowToolbarStyle(.unified)
         .commands {
             CommandGroup(replacing: .newItem) {
                 Button("Open Song…") { state.chooseSong() }.keyboardShortcut("n")

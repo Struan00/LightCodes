@@ -6,7 +6,7 @@ Drop in a song. LightCodes finds the beat, bars and phrases (intro, build, drop�
 
 ## Run it
 
-Requires macOS 14+ and Xcode 15+.
+Requires macOS 14+ and Xcode 15+. On macOS 26 it uses Liquid Glass; on 14–15 it falls back to system materials.
 
 ```bash
 swift run                 # quick dev run
@@ -14,13 +14,22 @@ swift run                 # quick dev run
 open Package.swift        # or edit in Xcode
 ```
 
+### Building with only the Command Line Tools
+
+Full Xcode is recommended. Without it, the macOS 27 SDK fails with `plugin for module 'SwiftUIMacros' not found` (its `@State` is a macro whose plugin ships only with Xcode). Point the build at the macOS 26 SDK instead:
+
+```bash
+export SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.sdk
+swift run
+```
+
 ## How it works (in 60 seconds)
 
 | Mode | What you do |
 |---|---|
-| **BUILD** | Pick a *move* (Flash, Pulse, Strobe, Chase…) and a colour, then click a lane. Drag to move, drag the right edge to resize, and everything snaps to the beat. |
-| **LIVE REC** | Press play and hold keys **1–9** (one per light) or **Q** (all lights) on the beat. You get graded PERFECT / GREAT / GOOD and build combos. Your taps become clips. |
-| **SHOW** | Full-screen highway plus a master fader and blackout, for performing. |
+| **Build** | Pick a *move* (Flash, Pulse, Strobe, Chase…) and a colour, then click a lane. Drag to move, drag the right edge to resize, and everything snaps to the beat. |
+| **Record** | Press play and hold keys **1–9** (one per light) or **Q** (all lights) on the beat. You get graded PERFECT / GREAT / GOOD and build combos. Your taps become clips. |
+| **Perform** | Full-screen highway plus a master fader and blackout, for performing. |
 
 Keys: `Space` play · `←/→` jump a bar (⇧ = 4 bars) · `Tab` switch mode · `⌘Z` undo · `⌘D` duplicate · `⌫` delete · `⌘⇧A` Auto-Show · `⌘L` lights.
 
@@ -42,7 +51,7 @@ Setup: open **Lights & Output** (`⌘L`), add each light with its channel layout
 | SoundSwitch's *Autoscript* and *phrase* detection (Intro/Main/Bridge/Outro) is its killer feature, but phrases often need manual fixing. | [bonedo.de on SoundSwitch 2.8](https://www.bonedo.de/artikel/soundswitch-2-8-lighting-software-bringt-phrasenbearbeitung-verbessertes-batch-scripting-und-neue-styles/) | Auto-detected phrase strip; **right-click to relabel**; Auto-Show built from phrases |
 | xLights sequencing is built on timing tracks plus snap-to-mark; lights lag, so effects should land slightly *before* the beat. | [xLights manual: timing tracks](https://manual.xlights.org/xlights/chapters/chapter-four-sequencer/timing-tracks), [effects grid](https://manual.xlights.org/xlights/chapters/chapter-five-menus/file/settings/effects-grid) | Beat grid with 1/4–1/16 snap; global **Sync Offset** that fires lights early |
 | Lightkey's Design view only shows controls the fixture actually has; it has a virtual stage. | [lightkeyapp.com](https://lightkeyapp.com/) | Simple "moves" instead of raw channels; live **stage visualiser** |
-| Rhythm games: note highway, timing grades, judging on *song* time, a user latency offset. Beginners need roughly 100–150 ms windows. | [Godot rhythm guide](https://skills.cat/skills/thedivergentai/gd-agentic-skills/godot-genre-rhythm), [Giant Bomb: note highway](https://Www.giantbomb.com/note-highway/3015-7102/) | **LIVE REC** highway; PERFECT < 40 ms, GREAT < 80 ms, GOOD < 130 ms; everything clocked off audio playback |
+| Rhythm games: note highway, timing grades, judging on *song* time, a user latency offset. Beginners need roughly 100–150 ms windows. | [Godot rhythm guide](https://skills.cat/skills/thedivergentai/gd-agentic-skills/godot-genre-rhythm), [Giant Bomb: note highway](https://Www.giantbomb.com/note-highway/3015-7102/) | **Record** highway; PERFECT < 40 ms, GREAT < 80 ms, GOOD < 130 ms; everything clocked off audio playback |
 | QLC+ engine: fixed-rate master timer, 512-ch universes, HTP intensity / LTP colour, Enttec packet format. | [QLC+ source](https://github.com/mcallegari/qlcplus) (Apache-2.0) | Same model in `Engine/` and `Output/`, rewritten in Swift |
 
 ## Code map
