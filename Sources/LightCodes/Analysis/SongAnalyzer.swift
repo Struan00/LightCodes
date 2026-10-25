@@ -110,8 +110,8 @@ enum SongAnalyzer {
         let n = fftSize, half = n / 2
         let frames = max(0, (x.count - n) / hop)
         guard frames > 0,
-              let dft = try? vDSP.DFT(count: n, direction: .forward,
-                                      transformType: .complexComplex, ofType: Float.self) else {
+              let dft = try? vDSP.DiscreteFourierTransform(count: n, direction: .forward,
+                                                           transformType: .complexComplex, ofType: Float.self) else {
             return ([], [])
         }
         let window = vDSP.window(ofType: Float.self, usingSequence: .hanningDenormalized, count: n, isHalfWindow: false)
